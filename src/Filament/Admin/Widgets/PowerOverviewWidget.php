@@ -35,10 +35,18 @@ class PowerOverviewWidget extends StatsOverviewWidget
         return [
             Stat::make(trans('power-metrics::strings.stats.current'), PowerStats::watts($current['watts']))
                 ->icon('tabler-bolt')
-                ->description($current['watts'] === null
-                    ? trans('power-metrics::strings.stats.no_data')
-                    : trans('power-metrics::strings.stats.current_sources', ['online' => $current['online'], 'total' => $current['total']]))
-                ->color($current['watts'] === null ? 'gray' : 'primary')
+                ->description(match (true) {
+                    $current['watts'] === null => trans('power-metrics::strings.stats.no_data'),
+                    $current['estimated'] === 0 => trans('power-metrics::strings.stats.measured'),
+                    $current['estimated'] === $current['online'] => trans('power-metrics::strings.stats.estimated'),
+                    default => trans('power-metrics::strings.stats.partly_estimated', ['count' => $current['estimated'], 'total' => $current['online']]),
+                })
+                ->descriptionIcon($current['watts'] !== null && $current['estimated'] > 0 ? 'tabler-calculator' : null)
+                ->color(match (true) {
+                    $current['watts'] === null => 'gray',
+                    $current['estimated'] > 0 => 'warning',
+                    default => 'success',
+                })
                 ->chart($sparkline ?: null),
 
             Stat::make(trans('power-metrics::strings.stats.today'), PowerStats::kwh($today['kwh']))
@@ -48,7 +56,8 @@ class PowerOverviewWidget extends StatsOverviewWidget
 
             Stat::make(trans('power-metrics::strings.stats.month'), PowerStats::kwh($month['kwh']))
                 ->icon('tabler-calendar-month')
-                ->description(trans('power-metrics::strings.stats.last_month', ['value' => PowerStats::kwh($lastMonth['kwh'])]))
+                ->description(trans('power-metrics::strings.stats.last_month', ['value' => PowerStats::kwh($lastMonth['kwh'])])
+                    . ($month['estimated_share'] > 0 ? ' · ' . trans('power-metrics::strings.stats.estimated_share', ['percent' => round($month['estimated_share'] * 100)]) : ''))
                 ->color('info'),
 
             Stat::make(trans('power-metrics::strings.stats.cost_month'), PowerStats::cost($month['kwh']))

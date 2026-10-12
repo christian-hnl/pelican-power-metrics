@@ -8,7 +8,7 @@ Admin-Bereich → **Stromverbrauch**
 
 | Kachel | Inhalt |
 | --- | --- |
-| Aktuelle Leistung | Watt jetzt, Mini-Verlauf der letzten Stunde, Anzahl Quellen online |
+| Aktuelle Leistung | Watt jetzt, Mini-Verlauf der letzten Stunde, ob gemessen oder geschätzt |
 | Verbrauch heute / Monat | kWh, dazu Kosten bzw. Vergleich zum Vormonat |
 | Kosten diesen Monat | kWh × Strompreis |
 | Prognose Monat | Hochrechnung auf den ganzen Monat |
@@ -32,9 +32,39 @@ Alle Werte aktualisieren sich automatisch (Polling alle 30 s).
    `* * * * * php /var/www/pelican/artisan schedule:run >> /dev/null 2>&1`
 4. Unter `Admin → Plugins → Power Metrics → Einstellungen` Strompreis und Währung setzen.
 
+## Messen – und schätzen, wenn nicht gemessen werden kann
+
+Das Plugin zeigt immer an, **woher** ein Wert kommt:
+
+* **Gemessen** (grün): echter Wert eines Messgeräts – smarte Steckdose, IPMI/BMC usw.
+* **Geschätzt** (gelb): Fallback aus der CPU-Auslastung, die Wings an das Panel meldet:
+  `Watt = Leerlauf-Watt + (Volllast-Watt − Leerlauf-Watt) × CPU-Auslastung`
+
+Ablauf je Quelle, jede Minute:
+
+1. Messende Quelle abfragen bzw. auf das Push-Skript warten.
+2. Klappt das nicht (Gerät nicht erreichbar, Push seit 5 Minuten still), wird – sofern ein Node hinterlegt und „Bei Messausfall schätzen“ aktiv ist – geschätzt.
+3. Kommt wieder ein Messwert, wird sofort wieder gemessen.
+
+**Ohne jede Quelle** legt das Plugin beim ersten Lauf für jeden Wings-Node automatisch eine Schätz-Quelle an. So siehst du sofort Werte und kannst später eine echte Messung ergänzen. In der Monatskachel steht, wie viel Prozent geschätzt waren.
+
+Für eine brauchbare Schätzung bei der Quelle **Leerlauf- und Volllast-Watt** eintragen (Standard: 35 W / 120 W). Am besten einmal mit einem Steckdosen-Messgerät nachmessen.
+
+> **Pelican/Wings in einer Proxmox-VM:** Die Schätzung sieht nur die CPU-Last der Wings-VM, nicht die anderer VMs/Container auf dem Host. Für den echten Verbrauch des ganzen Proxmox-Hosts führt kein Weg an einer Messung vorbei (Steckdose oder IPMI).
+
+## Wenn nichts angezeigt wird
+
+Oben auf der Seite zeigt ein Statusbereich, was fehlt:
+
+* **„Die Erfassung läuft nicht“** – der Pelican-Scheduler läuft nicht. In dem Container/der VM, in der das Panel läuft, muss dieser Cron-Eintrag existieren:
+  `* * * * * php /var/www/pelican/artisan schedule:run >> /dev/null 2>&1`
+  Ohne ihn wird weder gemessen noch geschätzt. Test: `php artisan power-metrics:collect` von Hand ausführen.
+* **Quelle „Keine Daten“** – die Fehlermeldung steht direkt darunter (z. B. Steckdose nicht erreichbar, Wings antwortet nicht).
+* Nach einem Update sicherstellen, dass die Migrationen gelaufen sind (Plugin-Update im Panel erledigt das; sonst `php artisan migrate`).
+
 ## Datenquellen einrichten
 
-Weder Wings noch Proxmox liefern von sich aus Stromwerte. Du brauchst eine Messquelle. Unter **Admin → Stromquellen** kannst du beliebig viele anlegen; mehrere Quellen werden zur Gesamtleistung addiert.
+Für **echte Werte** brauchst du eine Messquelle – Wings und Proxmox liefern selbst keine Stromwerte. Unter **Admin → Stromquellen** kannst du beliebig viele anlegen; mehrere Quellen werden zur Gesamtleistung addiert.
 
 ### Variante A – Smarte Steckdose / Shelly / Tasmota / Home Assistant (HTTP/JSON, empfohlen)
 
@@ -69,7 +99,7 @@ echo '* * * * * root /usr/local/bin/pelican-power-push.sh' > /etc/cron.d/pelican
 ```
 
 * `MODE=ipmi` – Server mit BMC (iDRAC, iLO, IPMI): echte Gesamtleistung (`apt install ipmitool`).
-* `MODE=rapl` – misst nur die CPU(s) über Intel/AMD RAPL. Für Mainboard, RAM, Platten, Lüfter, Netzteilverluste `OFFSET_WATTS` schätzen. Nur eine Näherung!
+* `MODE=rapl` – misst nur die CPU(s) über Intel/AMD RAPL. Für Mainboard, RAM, Platten, Lüfter, Netzteilverluste `OFFSET_WATTS` schätzen. Nur eine Näherung, wird aber als „gemessen“ angezeigt – für echte Werte `ipmi` oder eine Steckdose nehmen.
 * `MODE=command` – beliebiger Befehl, der Watt ausgibt.
 
 Direkter API-Aufruf (z. B. aus eigenen Skripten):
@@ -85,7 +115,7 @@ curl -X POST https://panel.example.com/api/power-metrics/push \
 * **kWh** werden per Trapezregel aus den Messwerten integriert. Lücken > 15 Minuten (Ausfall) werden nicht hochgerechnet, sondern als Lücke gezählt.
 * Bei mehreren Quellen werden Ø/Min/Max pro Stunde je Quelle addiert. Peak/Low sind dann Stundenwerte der Summe (bei einer Quelle exakt).
 * Rohwerte werden 72 h aufbewahrt (Live-Verläufe), Stundenwerte 730 Tage. Anpassbar über `POWER_METRICS_RAW_RETENTION_HOURS` und `POWER_METRICS_RETENTION_DAYS`.
-* Tage/Monate richten sich nach der Zeitzone des Panels (`APP_TIMEZONE`).
+* Tage/Monate richten sich nach der Zeitzone des angemeldeten Benutzers (sonst `APP_TIMEZONE`).
 
 ## Hinweise
 

@@ -6,6 +6,7 @@ use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerDailyChart;
 use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerHistoryChart;
 use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerOverviewWidget;
 use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerProfileChart;
+use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerStatusWidget;
 use ChristianHnl\PowerMetrics\Models\PowerSource;
 use Filament\Pages\Page;
 
@@ -35,6 +36,7 @@ class PowerUsagePage extends Page
     protected function getHeaderWidgets(): array
     {
         return [
+            PowerStatusWidget::class,
             PowerOverviewWidget::class,
             PowerHistoryChart::class,
             PowerDailyChart::class,

@@ -33,7 +33,39 @@ return [
     'error' => 'Fehler',
     'regenerate_token' => 'Neues Token erzeugen',
 
+    'type_estimate' => 'Schätzung (aus der CPU-Auslastung des Nodes)',
+    'node_unreachable' => 'Schätzung nicht möglich: Wings auf dem Node antwortet nicht.',
+    'estimation' => 'Schätzung',
+    'estimation_description' => 'Watt = Leerlauf + (Volllast − Leerlauf) × CPU-Auslastung des Nodes. Nur eine Näherung – für echte Werte eine messende Quelle verwenden.',
+    'estimation_fallback_description' => 'Fällt die Messung aus (Gerät nicht erreichbar, Push-Skript sendet nicht), wird automatisch aus der CPU-Auslastung des Nodes geschätzt. Geschätzte Werte sind gekennzeichnet.',
+    'estimate_fallback' => 'Bei Messausfall schätzen',
+    'node_hint' => 'Wings-Node, dessen CPU-Auslastung für die Schätzung verwendet wird.',
+    'idle_watts' => 'Leistung im Leerlauf',
+    'idle_watts_hint' => 'Verbrauch des Hosts ohne Last. Am besten einmal mit einem Messgerät ermitteln. Leer = Standardwert.',
+    'max_watts' => 'Leistung unter Volllast',
+    'max_watts_hint' => 'Verbrauch bei 100 % CPU. Leer = Standardwert.',
+
+    'mode' => [
+        'measured' => 'Gemessen',
+        'estimated' => 'Geschätzt',
+        'offline' => 'Keine Daten',
+        'disabled' => 'Deaktiviert',
+    ],
+
+    'status_widget' => [
+        'collector_heading' => 'Die Erfassung läuft nicht',
+        'collector_description' => 'In den letzten 3 Minuten wurde power-metrics:collect nicht ausgeführt. Der Pelican-Scheduler muss per Cron laufen: * * * * * php :path schedule:run >> /dev/null 2>&1 (auf dem Rechner/Container, auf dem das Panel läuft). Ohne Scheduler werden keine Werte erfasst und nichts geschätzt.',
+        'no_sources_description' => 'Sobald die Erfassung läuft, wird für jeden Node automatisch eine Schätz-Quelle angelegt. Für echte Werte eine Steckdose mit Messung (Shelly, Tasmota, ...) oder IPMI als Quelle hinzufügen.',
+        'all_offline_heading' => 'Keine Quelle liefert aktuell Werte',
+        'all_offline_description' => 'Die Fehlermeldungen stehen unten bei den Quellen. Bei Schätz-Quellen muss Wings auf dem Node erreichbar sein.',
+        'no_fallback' => 'Kein Schätz-Fallback eingerichtet (Node fehlt) – bei Messausfall gibt es keine Werte.',
+    ],
+
     'stats' => [
+        'measured' => 'Gemessen',
+        'estimated' => 'Geschätzt (keine Messung verfügbar)',
+        'partly_estimated' => ':count von :total Quellen geschätzt',
+        'estimated_share' => ':percent % geschätzt',
         'current' => 'Aktuelle Leistung',
         'current_sources' => ':online von :total Quellen online',
         'no_data' => 'Keine aktuellen Messwerte',

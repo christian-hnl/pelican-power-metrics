@@ -33,7 +33,39 @@ return [
     'error' => 'Error',
     'regenerate_token' => 'Regenerate token',
 
+    'type_estimate' => 'Estimate (from the node CPU usage)',
+    'node_unreachable' => 'Cannot estimate: Wings on the node is not responding.',
+    'estimation' => 'Estimation',
+    'estimation_description' => 'Watts = idle + (full load − idle) × node CPU usage. Only an approximation – use a measuring source for real values.',
+    'estimation_fallback_description' => 'If measuring fails (device unreachable, push script silent), the value is estimated from the node CPU usage automatically. Estimated values are marked.',
+    'estimate_fallback' => 'Estimate when measuring fails',
+    'node_hint' => 'Wings node whose CPU usage is used for the estimate.',
+    'idle_watts' => 'Idle power',
+    'idle_watts_hint' => 'Host power without load. Best measured once with a meter. Empty = default.',
+    'max_watts' => 'Full load power',
+    'max_watts_hint' => 'Power at 100 % CPU. Empty = default.',
+
+    'mode' => [
+        'measured' => 'Measured',
+        'estimated' => 'Estimated',
+        'offline' => 'No data',
+        'disabled' => 'Disabled',
+    ],
+
+    'status_widget' => [
+        'collector_heading' => 'Collection is not running',
+        'collector_description' => 'power-metrics:collect has not run in the last 3 minutes. The Pelican scheduler must run via cron: * * * * * php :path schedule:run >> /dev/null 2>&1 (on the machine/container running the panel). Without the scheduler nothing is collected or estimated.',
+        'no_sources_description' => 'Once collection runs, an estimate source is created for every node automatically. For real values add a smart plug with metering (Shelly, Tasmota, ...) or IPMI as a source.',
+        'all_offline_heading' => 'No source is delivering values right now',
+        'all_offline_description' => 'See the error messages at the sources below. Estimate sources need Wings on the node to be reachable.',
+        'no_fallback' => 'No estimate fallback configured (node missing) – no values while measuring fails.',
+    ],
+
     'stats' => [
+        'measured' => 'Measured',
+        'estimated' => 'Estimated (no measurement available)',
+        'partly_estimated' => ':count of :total sources estimated',
+        'estimated_share' => ':percent % estimated',
         'current' => 'Current power',
         'current_sources' => ':online of :total sources online',
         'no_data' => 'No recent measurements',

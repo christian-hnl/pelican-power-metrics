@@ -16,6 +16,10 @@ return [
     // Ab welcher Lücke (Sekunden) zwischen zwei Messwerten keine Energie mehr integriert wird
     'max_gap_seconds' => (int) env('POWER_METRICS_MAX_GAP_SECONDS', 900),
 
+    // Standardwerte für die Schätzung (Fallback), wenn an der Quelle nichts eingetragen ist
+    'default_idle_watts' => (float) env('POWER_METRICS_DEFAULT_IDLE_WATTS', 35),
+    'default_max_watts' => (float) env('POWER_METRICS_DEFAULT_MAX_WATTS', 120),
+
     // Nach wie vielen Sekunden ohne Messwert eine Quelle als "offline" gilt
     'stale_after_seconds' => (int) env('POWER_METRICS_STALE_AFTER_SECONDS', 300),
 ];

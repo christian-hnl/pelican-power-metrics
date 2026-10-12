@@ -17,9 +17,10 @@ class PowerRecorder
     /**
      * Speichert einen Messwert und führt die Stunden-Aggregation sowie die kWh-Integration nach.
      *
+     * @param  bool  $estimated  true = Schätzwert (Fallback), false = echter Messwert
      * @return bool false, wenn der Wert verworfen wurde (z. B. älter als der letzte Messwert)
      */
-    public function record(PowerSource $source, float $watts, ?CarbonInterface $at = null): bool
+    public function record(PowerSource $source, float $watts, ?CarbonInterface $at = null, bool $estimated = false): bool
     {
         if (!is_finite($watts) || $watts < 0 || $watts > self::MAX_WATTS) {
             throw new InvalidArgumentException('Ungültiger Leistungswert: ' . $watts);
@@ -27,7 +28,7 @@ class PowerRecorder
 
         $at = ($at ?? now())->copy()->utc();
 
-        return DB::transaction(function () use ($source, $watts, $at) {
+        return DB::transaction(function () use ($source, $watts, $at, $estimated) {
             /** @var PowerSource $source */
             $source = PowerSource::query()->lockForUpdate()->findOrFail($source->id);
 
@@ -51,6 +52,7 @@ class PowerRecorder
                 'power_source_id' => $source->id,
                 'watts' => $watts,
                 'recorded_at' => $at,
+                'estimated' => $estimated,
             ]);
 
             $hour = $at->copy()->startOfHour();
@@ -67,13 +69,21 @@ class PowerRecorder
             $stat->min_watts = $isNew ? $watts : min($stat->min_watts, $watts);
             $stat->max_watts = $isNew ? $watts : max($stat->max_watts, $watts);
             $stat->energy_wh = ($stat->energy_wh ?? 0) + $energyWh;
+            $stat->estimated_samples = ($stat->estimated_samples ?? 0) + ($estimated ? 1 : 0);
             $stat->save();
 
             $source->forceFill([
                 'last_watts' => $watts,
                 'last_sample_at' => $at,
-                'last_error' => null,
-            ])->save();
+                'last_estimated' => $estimated,
+            ]);
+
+            // Ein Schätzwert lässt einen Messfehler sichtbar, ein echter Messwert räumt ihn ab
+            if (!$estimated) {
+                $source->forceFill(['last_measured_at' => $at, 'last_error' => null]);
+            }
+
+            $source->save();
 
             return true;
         });

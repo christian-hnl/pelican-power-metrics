@@ -31,9 +31,12 @@ class PowerStats
         '1y' => ['hourly', 31536000, 86400, 'd.m.y'],
     ];
 
+    /** Zeitzone des angemeldeten Benutzers (wie im restlichen Panel), sonst die des Panels. */
     public function timezone(): string
     {
-        return (string) config('app.timezone', 'UTC');
+        $timezone = function_exists('user') ? user()?->timezone : null;
+
+        return (string) ($timezone ?: config('app.timezone', 'UTC'));
     }
 
     public function now(): Carbon
@@ -41,7 +44,7 @@ class PowerStats
         return Carbon::now($this->timezone());
     }
 
-    /** @return array{watts: ?float, online: int, total: int} */
+    /** @return array{watts: ?float, online: int, total: int, estimated: int} */
     public function current(): array
     {
         $sources = PowerSource::query()->where('enabled', true)->get();
@@ -51,13 +54,14 @@ class PowerStats
             'watts' => $online->isEmpty() ? null : (float) $online->sum('last_watts'),
             'online' => $online->count(),
             'total' => $sources->count(),
+            'estimated' => $online->filter(fn (PowerSource $source) => $source->last_estimated)->count(),
         ];
     }
 
     /**
      * Kennzahlen für einen Zeitraum.
      *
-     * @return array{kwh: float, avg: ?float, peak: ?float, peak_at: ?Carbon, low: ?float, low_at: ?Carbon, hours: int}
+     * @return array{kwh: float, avg: ?float, peak: ?float, peak_at: ?Carbon, low: ?float, low_at: ?Carbon, hours: int, estimated_share: float}
      */
     public function summary(CarbonInterface $from, CarbonInterface $to): array
     {
@@ -67,8 +71,12 @@ class PowerStats
         $weighted = 0.0;
         $weights = 0;
         $peak = $low = $peakAt = $lowAt = null;
+        $samples = $estimatedSamples = 0;
 
         foreach ($hours as $timestamp => $hour) {
+            $samples += $hour['samples'];
+            $estimatedSamples += $hour['estimated'];
+
             $kwh += $hour['wh'] / 1000;
             $weighted += $hour['avg'] * $hour['weight'];
             $weights += $hour['weight'];
@@ -94,6 +102,7 @@ class PowerStats
             'low' => $low,
             'low_at' => $lowAt !== null ? Carbon::createFromTimestamp($lowAt, $tz) : null,
             'hours' => count($hours),
+            'estimated_share' => $samples > 0 ? $estimatedSamples / $samples : 0.0,
         ];
     }
 
@@ -232,7 +241,7 @@ class PowerStats
     /**
      * Summiert die Stunden-Aggregate aller Quellen je Stunde.
      *
-     * @return array<int, array{avg: float, min: float, max: float, wh: float, weight: int}> Schlüssel: Unix-Timestamp der Stunde
+     * @return array<int, array{avg: float, min: float, max: float, wh: float, weight: int, samples: int, estimated: int}> Schlüssel: Unix-Timestamp der Stunde
      */
     private function hourTotals(CarbonInterface $from, CarbonInterface $to): array
     {
@@ -250,12 +259,14 @@ class PowerStats
 
                 $key = $stat->hour->getTimestamp();
 
-                $totals[$key] ??= ['avg' => 0.0, 'min' => 0.0, 'max' => 0.0, 'wh' => 0.0, 'weight' => 0];
+                $totals[$key] ??= ['avg' => 0.0, 'min' => 0.0, 'max' => 0.0, 'wh' => 0.0, 'weight' => 0, 'samples' => 0, 'estimated' => 0];
                 $totals[$key]['avg'] += $stat->sum_watts / $stat->samples;
                 $totals[$key]['min'] += $stat->min_watts;
                 $totals[$key]['max'] += $stat->max_watts;
                 $totals[$key]['wh'] += $stat->energy_wh;
                 $totals[$key]['weight'] = max($totals[$key]['weight'], $stat->samples);
+                $totals[$key]['samples'] += $stat->samples;
+                $totals[$key]['estimated'] += $stat->estimated_samples;
             });
 
         ksort($totals);

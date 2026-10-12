@@ -2,6 +2,7 @@
 
 namespace ChristianHnl\PowerMetrics\Filament\Admin\Resources\PowerSources;
 
+use App\Models\Node;
 use ChristianHnl\PowerMetrics\Filament\Admin\Resources\PowerSources\Pages\ManagePowerSources;
 use ChristianHnl\PowerMetrics\Models\PowerSource;
 use ChristianHnl\PowerMetrics\Services\PowerStats;
@@ -13,6 +14,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -54,7 +56,11 @@ class PowerSourceResource extends Resource
                 TextColumn::make('type')
                     ->label(trans('power-metrics::strings.type'))
                     ->badge()
-                    ->formatStateUsing(fn (string $state) => $state === PowerSource::TYPE_PUSH ? 'Push' : 'HTTP/JSON'),
+                    ->formatStateUsing(fn (string $state) => match ($state) {
+                        PowerSource::TYPE_PUSH => 'Push',
+                        PowerSource::TYPE_HTTP_JSON => 'HTTP/JSON',
+                        default => trans('power-metrics::strings.mode.estimated'),
+                    }),
                 IconColumn::make('enabled')
                     ->label(trans('power-metrics::strings.enabled'))
                     ->boolean(),
@@ -62,14 +68,27 @@ class PowerSourceResource extends Resource
                     ->label(trans('power-metrics::strings.current'))
                     ->formatStateUsing(fn ($state) => PowerStats::watts($state === null ? null : (float) $state))
                     ->placeholder('–'),
-                TextColumn::make('status')
+                TextColumn::make('mode')
                     ->label(trans('power-metrics::strings.status'))
                     ->badge()
-                    ->state(fn (PowerSource $record) => $record->last_error && !$record->isOnline()
-                        ? trans('power-metrics::strings.error')
-                        : ($record->isOnline() ? trans('power-metrics::strings.online') : trans('power-metrics::strings.offline')))
-                    ->color(fn (PowerSource $record) => $record->isOnline() ? 'success' : ($record->last_error ? 'danger' : 'gray'))
+                    ->state(fn (PowerSource $record) => $record->enabled ? $record->mode() : 'disabled')
+                    ->formatStateUsing(fn (string $state) => trans("power-metrics::strings.mode.$state"))
+                    ->color(fn (string $state) => match ($state) {
+                        PowerSource::MODE_MEASURED => 'success',
+                        PowerSource::MODE_ESTIMATED => 'warning',
+                        PowerSource::MODE_OFFLINE => 'danger',
+                        default => 'gray',
+                    })
+                    ->icon(fn (string $state) => match ($state) {
+                        PowerSource::MODE_MEASURED => 'tabler-gauge',
+                        PowerSource::MODE_ESTIMATED => 'tabler-calculator',
+                        default => null,
+                    })
                     ->tooltip(fn (PowerSource $record) => $record->last_error),
+                TextColumn::make('node.name')
+                    ->label('Node')
+                    ->placeholder('–')
+                    ->toggleable(),
                 TextColumn::make('last_sample_at')
                     ->label(trans('power-metrics::strings.last_seen'))
                     ->since()
@@ -110,14 +129,14 @@ class PowerSourceResource extends Resource
                     ->default(PowerSource::TYPE_PUSH)
                     ->required()
                     ->selectablePlaceholder(false)
-                    ->live()
-                    ->disabledOn('edit'),
+                    ->live(),
                 Toggle::make('enabled')
                     ->label(trans('power-metrics::strings.enabled'))
                     ->default(true)
                     ->inline(false),
                 TextInput::make('multiplier')
                     ->label(trans('power-metrics::strings.multiplier'))
+                    ->visible(fn ($get) => $get('type') !== PowerSource::TYPE_ESTIMATE)
                     ->hintIcon('tabler-question-mark')
                     ->hintIconTooltip(trans('power-metrics::strings.multiplier_hint'))
                     ->numeric()
@@ -168,6 +187,49 @@ class PowerSourceResource extends Resource
                     ->password()
                     ->revealable()
                     ->maxLength(1000),
+
+                // Schätzung (eigener Typ oder Fallback für messende Quellen)
+                Section::make(trans('power-metrics::strings.estimation'))
+                    ->description(fn ($get) => $get('type') === PowerSource::TYPE_ESTIMATE
+                        ? trans('power-metrics::strings.estimation_description')
+                        : trans('power-metrics::strings.estimation_fallback_description'))
+                    ->icon('tabler-calculator')
+                    ->columnSpanFull()
+                    ->columns(['default' => 1, 'md' => 2])
+                    ->schema([
+                        Toggle::make('estimate_fallback')
+                            ->label(trans('power-metrics::strings.estimate_fallback'))
+                            ->visible(fn ($get) => $get('type') !== PowerSource::TYPE_ESTIMATE)
+                            ->default(true)
+                            ->live()
+                            ->columnSpanFull(),
+                        Select::make('node_id')
+                            ->label('Node')
+                            ->options(fn () => Node::query()->orderBy('name')->pluck('name', 'id'))
+                            ->required(fn ($get) => $get('type') === PowerSource::TYPE_ESTIMATE)
+                            ->visible(fn ($get) => $get('type') === PowerSource::TYPE_ESTIMATE || $get('estimate_fallback'))
+                            ->hintIcon('tabler-question-mark')
+                            ->hintIconTooltip(trans('power-metrics::strings.node_hint'))
+                            ->columnSpanFull(),
+                        TextInput::make('idle_watts')
+                            ->label(trans('power-metrics::strings.idle_watts'))
+                            ->visible(fn ($get) => $get('type') === PowerSource::TYPE_ESTIMATE || $get('estimate_fallback'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix('W')
+                            ->placeholder(fn () => (string) config('power-metrics.default_idle_watts'))
+                            ->hintIcon('tabler-question-mark')
+                            ->hintIconTooltip(trans('power-metrics::strings.idle_watts_hint')),
+                        TextInput::make('max_watts')
+                            ->label(trans('power-metrics::strings.max_watts'))
+                            ->visible(fn ($get) => $get('type') === PowerSource::TYPE_ESTIMATE || $get('estimate_fallback'))
+                            ->numeric()
+                            ->minValue(0)
+                            ->suffix('W')
+                            ->placeholder(fn () => (string) config('power-metrics.default_max_watts'))
+                            ->hintIcon('tabler-question-mark')
+                            ->hintIconTooltip(trans('power-metrics::strings.max_watts_hint')),
+                    ]),
             ])
             ->columns([
                 'default' => 1,

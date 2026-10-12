@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $power_source_id
  * @property float $watts
  * @property CarbonInterface $recorded_at
+ * @property bool $estimated
  */
 class PowerSample extends Model
 {
@@ -21,6 +22,7 @@ class PowerSample extends Model
         'power_source_id',
         'watts',
         'recorded_at',
+        'estimated',
     ];
 
     protected function casts(): array
@@ -28,6 +30,7 @@ class PowerSample extends Model
         return [
             'watts' => 'float',
             'recorded_at' => UtcDateTime::class,
+            'estimated' => 'bool',
         ];
     }
 

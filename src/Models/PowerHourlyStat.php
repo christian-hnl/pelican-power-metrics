@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property float $min_watts
  * @property float $max_watts
  * @property float $energy_wh
+ * @property int $estimated_samples
  */
 class PowerHourlyStat extends Model
 {
@@ -31,6 +32,7 @@ class PowerHourlyStat extends Model
         'min_watts',
         'max_watts',
         'energy_wh',
+        'estimated_samples',
     ];
 
     protected function casts(): array
@@ -42,6 +44,7 @@ class PowerHourlyStat extends Model
             'min_watts' => 'float',
             'max_watts' => 'float',
             'energy_wh' => 'float',
+            'estimated_samples' => 'int',
         ];
     }
 
