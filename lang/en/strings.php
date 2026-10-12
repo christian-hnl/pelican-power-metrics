@@ -3,7 +3,7 @@
 return [
     'navigation' => 'Power Usage',
     'title' => 'Power Usage',
-    'sources' => 'Power sources',
+    'sources' => 'Hosts',
     'source' => 'Power source',
     'no_sources' => 'No power source configured yet',
     'no_sources_description' => 'Add a source (push script on the Proxmox host or a smart plug via HTTP) to start collecting measurements.',
@@ -45,7 +45,38 @@ return [
     'max_watts' => 'Full load power',
     'max_watts_hint' => 'Power at 100 % CPU. Empty = default.',
 
+    'direct' => [
+        'push' => 'Push script on the host (IPMI or RAPL)',
+        'redfish' => 'Server BMC over network (Redfish: iDRAC, iLO, Supermicro)',
+        'local_rapl' => 'RAPL on this machine (CPU only)',
+    ],
+
+    'plug' => [
+        'custom' => 'Custom URL (JSON)',
+    ],
+
+    'chain' => [
+        'direct' => 'Direct',
+        'plug' => 'Smart plug',
+        'estimate' => 'Estimate',
+        'step_direct' => '1. Direct measurement',
+        'step_plug' => '2. Smart plug (if 1 fails)',
+        'step_estimate' => '3. Estimate (if 1 and 2 fail)',
+    ],
+
+    'errors' => [
+        'push_silent' => 'Push script has not sent anything for over 2 minutes',
+        'plug_address_missing' => 'No smart plug IP/URL configured',
+        'bmc_address_missing' => 'No BMC address configured',
+        'rapl_missing' => 'No RAPL on this machine (/sys/class/powercap missing – e.g. inside a VM)',
+        'rapl_unreadable' => 'RAPL not readable (root / privileged LXC only)',
+        'rapl_warming_up' => 'RAPL: first reading, value from the next run',
+        'nothing_configured' => 'No measurement method configured',
+    ],
+
     'mode' => [
+        'direct' => 'Measured directly',
+        'plug' => 'Smart plug',
         'measured' => 'Measured',
         'estimated' => 'Estimated',
         'offline' => 'No data',
@@ -56,10 +87,11 @@ return [
         'collector_heading' => 'Collection is not running',
         'collector_description' => 'power-metrics:collect has not run in the last 3 minutes. The Pelican scheduler must run via cron: * * * * * php :path schedule:run >> /dev/null 2>&1 (on the machine/container running the panel). Without the scheduler nothing is collected or estimated.',
         'collector_page_fallback' => 'Until then this page collects by itself while it is open – gaps appear while it is closed.',
-        'no_sources_description' => 'Once collection runs, an estimate source is created for every node automatically. For real values add a smart plug with metering (Shelly, Tasmota, ...) or IPMI as a source.',
+        'estimate_only' => 'Estimate only – add a measurement method or smart plug in the plugin settings for real values.',
+        'no_sources_description' => 'Once collection runs, a host with estimation is created for every node automatically. Set up measuring: "Set up" (top right) → Power Metrics → Settings.',
         'all_offline_heading' => 'No source is delivering values right now',
         'all_offline_description' => 'See the error messages at the sources below. Estimate sources need Wings on the node to be reachable.',
-        'no_fallback' => 'No estimate fallback configured (node missing) – no values while measuring fails.',
+        'no_fallback' => 'No estimate fallback configured – no values while measuring fails.',
     ],
 
     'stats' => [
@@ -109,6 +141,27 @@ return [
     ],
 
     'settings' => [
+        'setup' => 'Set up',
+        'hosts' => 'Hosts & measurement',
+        'hosts_description' => 'For every host (e.g. your Proxmox server) this order is tried every minute: 1. measure directly → 2. smart plug → 3. estimate. The first step that delivers a value wins.',
+        'add_host' => 'Add host',
+        'general' => 'Price & retention',
+        'method' => 'Method',
+        'none' => 'None',
+        'push_help' => 'Set up scripts/proxmox-power-push.sh on the Proxmox host (see README) with the push URL and token below. MODE=ipmi measures the real total power (servers with BMC), MODE=rapl only the CPU.',
+        'token_after_save' => 'Generated on save',
+        'bmc_address' => 'BMC address',
+        'bmc_address_hint' => 'IP or hostname of iDRAC/iLO/IPMI. Common Redfish paths are tried automatically. Or the full URL, e.g. https://10.0.0.5/redfish/v1/Chassis/1/Power',
+        'username' => 'Username',
+        'password' => 'Password',
+        'unchanged' => '•••••• (unchanged)',
+        'rapl_help' => 'Reads the CPU energy counters of the machine running the panel. Only works when the panel runs directly on the host or in a privileged LXC – not inside a VM. CPU only, add the rest via the offset.',
+        'offset_watts' => 'Offset',
+        'offset_watts_hint' => 'Added to every direct reading, e.g. for mainboard, disks and fans when only the CPU is measured. Leave 0 for real total measurement.',
+        'plug_type' => 'Smart plug',
+        'plug_address' => 'Smart plug IP address',
+        'ha_token' => 'Home Assistant token (long-lived access token)',
+        'save_failed' => 'Settings could not be saved',
         'price_per_kwh' => 'Price per kWh',
         'currency' => 'Currency',
         'retention_days' => 'Statistics retention (days)',

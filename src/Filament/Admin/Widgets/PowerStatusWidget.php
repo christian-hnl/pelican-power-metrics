@@ -61,14 +61,13 @@ class PowerStatusWidget extends Widget
             'issues' => $issues,
             'sources' => $sources->map(fn (PowerSource $source) => [
                 'name' => $source->name,
-                'type' => PowerSource::types()[$source->type] ?? $source->type,
-                'node' => $source->node?->name,
+                'chain' => $source->chainLabel(),
                 'mode' => $source->enabled ? $source->mode() : 'disabled',
                 'watts' => $source->isOnline() ? PowerStats::watts($source->last_watts) : null,
                 'error' => $source->last_error,
-                'hint' => $source->type !== PowerSource::TYPE_ESTIMATE && !$source->canEstimate()
+                'hint' => ($source->hasDirect() || $source->hasPlug()) && !$source->canEstimate()
                     ? trans('power-metrics::strings.status_widget.no_fallback')
-                    : null,
+                    : (!$source->hasDirect() && !$source->hasPlug() ? trans('power-metrics::strings.status_widget.estimate_only') : null),
             ])->all(),
         ];
     }

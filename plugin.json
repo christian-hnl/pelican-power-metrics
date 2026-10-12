@@ -2,7 +2,7 @@
     "id": "power-metrics",
     "name": "Power Metrics",
     "author": "christian-hnl",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "description": "Stromverbrauchs-Übersicht für Proxmox/Wings-Hosts: aktuelle Leistung, kWh pro Tag/Monat, Durchschnitt, Peak, Low, Kosten und Verlauf",
     "category": "plugin",
     "url": "https://github.com/christian-hnl/pelican-power-metrics",

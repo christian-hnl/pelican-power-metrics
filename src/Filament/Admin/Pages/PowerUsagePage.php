@@ -8,6 +8,8 @@ use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerOverviewWidget;
 use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerProfileChart;
 use ChristianHnl\PowerMetrics\Filament\Admin\Widgets\PowerStatusWidget;
 use ChristianHnl\PowerMetrics\Models\PowerSource;
+use App\Filament\Admin\Resources\Plugins\PluginResource;
+use Filament\Actions\Action;
 use Filament\Pages\Page;
 
 class PowerUsagePage extends Page
@@ -31,6 +33,17 @@ class PowerUsagePage extends Page
     public function getTitle(): string
     {
         return trans('power-metrics::strings.title');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('setup')
+                ->label(trans('power-metrics::strings.settings.setup'))
+                ->icon('tabler-settings')
+                ->url(fn () => PluginResource::getUrl())
+                ->visible(fn () => PluginResource::canAccess()),
+        ];
     }
 
     protected function getHeaderWidgets(): array

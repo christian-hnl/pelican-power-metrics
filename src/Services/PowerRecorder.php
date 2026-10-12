@@ -17,18 +17,19 @@ class PowerRecorder
     /**
      * Speichert einen Messwert und führt die Stunden-Aggregation sowie die kWh-Integration nach.
      *
-     * @param  bool  $estimated  true = Schätzwert (Fallback), false = echter Messwert
+     * @param  string  $method  PowerSource::METHOD_DIRECT | METHOD_PLUG | METHOD_ESTIMATE
      * @return bool false, wenn der Wert verworfen wurde (z. B. älter als der letzte Messwert)
      */
-    public function record(PowerSource $source, float $watts, ?CarbonInterface $at = null, bool $estimated = false): bool
+    public function record(PowerSource $source, float $watts, ?CarbonInterface $at = null, string $method = PowerSource::METHOD_DIRECT): bool
     {
         if (!is_finite($watts) || $watts < 0 || $watts > self::MAX_WATTS) {
             throw new InvalidArgumentException('Ungültiger Leistungswert: ' . $watts);
         }
 
         $at = ($at ?? now())->copy()->utc();
+        $estimated = $method === PowerSource::METHOD_ESTIMATE;
 
-        return DB::transaction(function () use ($source, $watts, $at, $estimated) {
+        return DB::transaction(function () use ($source, $watts, $at, $estimated, $method) {
             /** @var PowerSource $source */
             $source = PowerSource::query()->lockForUpdate()->findOrFail($source->id);
 
@@ -76,11 +77,15 @@ class PowerRecorder
                 'last_watts' => $watts,
                 'last_sample_at' => $at,
                 'last_estimated' => $estimated,
+                'last_method' => $method,
             ]);
 
-            // Ein Schätzwert lässt einen Messfehler sichtbar, ein echter Messwert räumt ihn ab
             if (!$estimated) {
-                $source->forceFill(['last_measured_at' => $at, 'last_error' => null]);
+                $source->forceFill(['last_measured_at' => $at]);
+            }
+
+            if ($method === PowerSource::METHOD_DIRECT) {
+                $source->forceFill(['last_direct_at' => $at]);
             }
 
             $source->save();

@@ -3,7 +3,7 @@
 return [
     'navigation' => 'Stromverbrauch',
     'title' => 'Stromverbrauch',
-    'sources' => 'Stromquellen',
+    'sources' => 'Hosts',
     'source' => 'Stromquelle',
     'no_sources' => 'Noch keine Stromquelle eingerichtet',
     'no_sources_description' => 'Lege eine Quelle an (Push-Skript für den Proxmox-Host oder eine Steckdose per HTTP), damit Messwerte erfasst werden.',
@@ -45,7 +45,38 @@ return [
     'max_watts' => 'Leistung unter Volllast',
     'max_watts_hint' => 'Verbrauch bei 100 % CPU. Leer = Standardwert.',
 
+    'direct' => [
+        'push' => 'Push-Skript auf dem Host (IPMI oder RAPL)',
+        'redfish' => 'Server-BMC über Netzwerk (Redfish: iDRAC, iLO, Supermicro)',
+        'local_rapl' => 'RAPL auf diesem Rechner (nur CPU)',
+    ],
+
+    'plug' => [
+        'custom' => 'Eigene URL (JSON)',
+    ],
+
+    'chain' => [
+        'direct' => 'Direkt',
+        'plug' => 'Steckdose',
+        'estimate' => 'Schätzung',
+        'step_direct' => '1. Direkte Messung',
+        'step_plug' => '2. Steckdose (wenn 1 nicht geht)',
+        'step_estimate' => '3. Schätzung (wenn 1 und 2 nicht gehen)',
+    ],
+
+    'errors' => [
+        'push_silent' => 'Push-Skript hat seit über 2 Minuten nichts gesendet',
+        'plug_address_missing' => 'Keine IP/URL der Steckdose eingetragen',
+        'bmc_address_missing' => 'Keine BMC-Adresse eingetragen',
+        'rapl_missing' => 'Kein RAPL auf diesem Rechner (/sys/class/powercap fehlt – z. B. in einer VM)',
+        'rapl_unreadable' => 'RAPL nicht lesbar (nur als root bzw. im privilegierten LXC)',
+        'rapl_warming_up' => 'RAPL: erster Messpunkt, Wert ab dem nächsten Lauf',
+        'nothing_configured' => 'Keine Messart eingerichtet',
+    ],
+
     'mode' => [
+        'direct' => 'Direkt gemessen',
+        'plug' => 'Steckdose',
         'measured' => 'Gemessen',
         'estimated' => 'Geschätzt',
         'offline' => 'Keine Daten',
@@ -56,10 +87,11 @@ return [
         'collector_heading' => 'Die Erfassung läuft nicht',
         'collector_description' => 'In den letzten 3 Minuten wurde power-metrics:collect nicht ausgeführt. Der Pelican-Scheduler muss per Cron laufen: * * * * * php :path schedule:run >> /dev/null 2>&1 (auf dem Rechner/Container, auf dem das Panel läuft). Ohne Scheduler werden keine Werte erfasst und nichts geschätzt.',
         'collector_page_fallback' => 'Bis dahin erfasst diese Seite selbst, solange sie geöffnet ist – bei geschlossener Seite entstehen Lücken.',
-        'no_sources_description' => 'Sobald die Erfassung läuft, wird für jeden Node automatisch eine Schätz-Quelle angelegt. Für echte Werte eine Steckdose mit Messung (Shelly, Tasmota, ...) oder IPMI als Quelle hinzufügen.',
+        'estimate_only' => 'Nur Schätzung eingerichtet – für echte Werte in den Plugin-Einstellungen eine Messart oder Steckdose ergänzen.',
+        'no_sources_description' => 'Sobald die Erfassung läuft, wird für jeden Node automatisch ein Host mit Schätzung angelegt. Messung einrichten: oben rechts „Einrichten“ → Power Metrics → Einstellungen.',
         'all_offline_heading' => 'Keine Quelle liefert aktuell Werte',
         'all_offline_description' => 'Die Fehlermeldungen stehen unten bei den Quellen. Bei Schätz-Quellen muss Wings auf dem Node erreichbar sein.',
-        'no_fallback' => 'Kein Schätz-Fallback eingerichtet (Node fehlt) – bei Messausfall gibt es keine Werte.',
+        'no_fallback' => 'Keine Schätzung als Fallback eingerichtet – fällt die Messung aus, gibt es keine Werte.',
     ],
 
     'stats' => [
@@ -109,6 +141,27 @@ return [
     ],
 
     'settings' => [
+        'setup' => 'Einrichten',
+        'hosts' => 'Hosts & Messung',
+        'hosts_description' => 'Pro Host (z. B. dein Proxmox-Server) wird jede Minute in dieser Reihenfolge versucht: 1. direkt messen → 2. Steckdose → 3. schätzen. Die erste Stufe mit einem Wert gewinnt.',
+        'add_host' => 'Host hinzufügen',
+        'general' => 'Strompreis & Aufbewahrung',
+        'method' => 'Messart',
+        'none' => 'Keine',
+        'push_help' => 'Das Skript scripts/proxmox-power-push.sh auf dem Proxmox-Host einrichten (siehe README) und dort Push-URL und Token eintragen. Mit MODE=ipmi misst es die echte Gesamtleistung (Server mit BMC), mit MODE=rapl nur die CPU.',
+        'token_after_save' => 'Wird beim Speichern erzeugt',
+        'bmc_address' => 'BMC-Adresse',
+        'bmc_address_hint' => 'IP oder Hostname von iDRAC/iLO/IPMI. Die Redfish-Pfade werden automatisch probiert. Alternativ die volle URL, z. B. https://10.0.0.5/redfish/v1/Chassis/1/Power',
+        'username' => 'Benutzername',
+        'password' => 'Passwort',
+        'unchanged' => '•••••• (unverändert)',
+        'rapl_help' => 'Liest die CPU-Energiezähler des Rechners, auf dem das Panel läuft. Funktioniert nur, wenn das Panel direkt auf dem Host oder in einem privilegierten LXC läuft – nicht in einer VM. Misst nur die CPU, den Rest über den Zuschlag ergänzen.',
+        'offset_watts' => 'Zuschlag',
+        'offset_watts_hint' => 'Wird auf jeden direkten Messwert addiert, z. B. für Mainboard, Platten und Lüfter, wenn nur die CPU gemessen wird. Bei echter Gesamtmessung 0 lassen.',
+        'plug_type' => 'Steckdose',
+        'plug_address' => 'IP-Adresse der Steckdose',
+        'ha_token' => 'Home-Assistant-Token (Long-Lived Access Token)',
+        'save_failed' => 'Einstellungen konnten nicht gespeichert werden',
         'price_per_kwh' => 'Strompreis pro kWh',
         'currency' => 'Währung',
         'retention_days' => 'Aufbewahrung der Statistik (Tage)',

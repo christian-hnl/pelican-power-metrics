@@ -6,7 +6,7 @@
 # Konfiguration: /etc/pelican-power-push.conf  (oder Umgebungsvariablen)
 #
 #   PANEL_URL="https://panel.example.com"   # URL deines Pelican Panels
-#   TOKEN="..."                              # Token der Stromquelle (Admin -> Stromquellen)
+#   TOKEN="..."                              # Token aus Admin -> Plugins -> Power Metrics -> Einstellungen
 #   MODE="rapl"                              # rapl | ipmi | command
 #   OFFSET_WATTS=0                           # fester Zuschlag, z. B. für Mainboard/Lüfter/Netzteil (nur bei MODE=rapl sinnvoll)
 #   COMMAND=""                               # nur bei MODE=command: Befehl, der eine Zahl in Watt ausgibt

@@ -20,6 +20,12 @@ return [
     'default_idle_watts' => (float) env('POWER_METRICS_DEFAULT_IDLE_WATTS', 35),
     'default_max_watts' => (float) env('POWER_METRICS_DEFAULT_MAX_WATTS', 120),
 
+    // Sendet das Push-Skript so lange nichts, wird auf Steckdose/Schätzung umgeschaltet (Sekunden)
+    'push_timeout_seconds' => (int) env('POWER_METRICS_PUSH_TIMEOUT_SECONDS', 150),
+
+    // Pfad zu den RAPL-Zählern (Messart "RAPL auf diesem Rechner")
+    'powercap_path' => env('POWER_METRICS_POWERCAP_PATH', '/sys/class/powercap'),
+
     // Nach wie vielen Sekunden ohne Messwert eine Quelle als "offline" gilt
     'stale_after_seconds' => (int) env('POWER_METRICS_STALE_AFTER_SECONDS', 300),
 ];

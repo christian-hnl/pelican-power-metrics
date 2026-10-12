@@ -11,15 +11,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
+ * Ein Host (z. B. der Proxmox-Server) mit Mess-Kette:
+ *   1. direkte Messung (Push-Skript, BMC/Redfish, lokales RAPL)
+ *   2. Steckdose mit Messfunktion (Shelly, Tasmota, Home Assistant, eigene URL)
+ *   3. Schätzung aus der CPU-Auslastung des Wings-Nodes
+ * Die erste Stufe, die einen Wert liefert, gewinnt.
+ *
  * @property int $id
  * @property string $name
- * @property string $type
  * @property bool $enabled
  * @property ?string $token
- * @property ?string $url
- * @property ?string $json_path
- * @property ?string $auth_header
  * @property float $multiplier
+ * @property ?string $direct_method
+ * @property ?string $direct_url
+ * @property ?string $direct_username
+ * @property ?string $direct_password
+ * @property float $direct_offset_watts
+ * @property ?string $plug_type
+ * @property ?string $plug_url
+ * @property ?string $plug_json_path
+ * @property ?string $plug_auth
  * @property ?int $node_id
  * @property ?float $idle_watts
  * @property ?float $max_watts
@@ -27,19 +38,52 @@ use Illuminate\Support\Str;
  * @property ?float $last_watts
  * @property ?CarbonInterface $last_sample_at
  * @property bool $last_estimated
+ * @property ?string $last_method
  * @property ?CarbonInterface $last_measured_at
+ * @property ?CarbonInterface $last_direct_at
  * @property ?string $last_error
  * @property ?Node $node
  */
 class PowerSource extends Model
 {
-    public const TYPE_PUSH = 'push';
+    // Stufe 1: direkte Messung
+    public const DIRECT_PUSH = 'push';
 
-    public const TYPE_HTTP_JSON = 'http_json';
+    public const DIRECT_REDFISH = 'redfish';
 
-    public const TYPE_ESTIMATE = 'estimate';
+    public const DIRECT_LOCAL_RAPL = 'local_rapl';
 
-    public const MODE_MEASURED = 'measured';
+    // Stufe 2: Steckdose
+    public const PLUG_SHELLY_GEN2 = 'shelly_gen2';
+
+    public const PLUG_SHELLY_GEN1 = 'shelly_gen1';
+
+    public const PLUG_TASMOTA = 'tasmota';
+
+    public const PLUG_HOME_ASSISTANT = 'home_assistant';
+
+    public const PLUG_CUSTOM = 'custom';
+
+    /** Vorlagen: {host} wird durch die eingetragene IP/den Hostnamen ersetzt */
+    public const PLUG_PRESETS = [
+        self::PLUG_SHELLY_GEN2 => ['url' => 'http://{host}/rpc/Switch.GetStatus?id=0', 'path' => 'apower'],
+        self::PLUG_SHELLY_GEN1 => ['url' => 'http://{host}/status', 'path' => 'meters.0.power'],
+        self::PLUG_TASMOTA => ['url' => 'http://{host}/cm?cmnd=Status%208', 'path' => 'StatusSNS.ENERGY.Power'],
+        self::PLUG_HOME_ASSISTANT => ['url' => null, 'path' => 'state'],
+        self::PLUG_CUSTOM => ['url' => null, 'path' => null],
+    ];
+
+    // Womit der letzte Wert ermittelt wurde
+    public const METHOD_DIRECT = 'direct';
+
+    public const METHOD_PLUG = 'plug';
+
+    public const METHOD_ESTIMATE = 'estimate';
+
+    // Anzeige-Zustände
+    public const MODE_DIRECT = 'direct';
+
+    public const MODE_PLUG = 'plug';
 
     public const MODE_ESTIMATED = 'estimated';
 
@@ -50,10 +94,16 @@ class PowerSource extends Model
         'type',
         'enabled',
         'token',
-        'url',
-        'json_path',
-        'auth_header',
         'multiplier',
+        'direct_method',
+        'direct_url',
+        'direct_username',
+        'direct_password',
+        'direct_offset_watts',
+        'plug_type',
+        'plug_url',
+        'plug_json_path',
+        'plug_auth',
         'node_id',
         'idle_watts',
         'max_watts',
@@ -63,9 +113,14 @@ class PowerSource extends Model
     protected $hidden = [
         'token',
         'auth_header',
+        'direct_password',
+        'plug_auth',
     ];
 
     protected $attributes = [
+        'type' => 'host',
+        'multiplier' => 1,
+        'direct_offset_watts' => 0,
         'estimate_fallback' => true,
         'last_estimated' => false,
     ];
@@ -75,6 +130,9 @@ class PowerSource extends Model
         return [
             'enabled' => 'bool',
             'multiplier' => 'float',
+            'direct_offset_watts' => 'float',
+            'direct_password' => 'encrypted',
+            'plug_auth' => 'encrypted',
             'node_id' => 'int',
             'idle_watts' => 'float',
             'max_watts' => 'float',
@@ -83,15 +141,14 @@ class PowerSource extends Model
             'last_sample_at' => UtcDateTime::class,
             'last_estimated' => 'bool',
             'last_measured_at' => UtcDateTime::class,
-            'auth_header' => 'encrypted',
+            'last_direct_at' => UtcDateTime::class,
         ];
     }
 
     protected static function booted(): void
     {
-        // Auch beim Umstellen einer bestehenden Quelle auf Push ein Token erzeugen
         static::saving(function (self $source) {
-            if ($source->type === self::TYPE_PUSH && !$source->token) {
+            if ($source->direct_method === self::DIRECT_PUSH && !$source->token) {
                 $source->token = self::generateToken();
             }
         });
@@ -103,12 +160,24 @@ class PowerSource extends Model
     }
 
     /** @return array<string, string> */
-    public static function types(): array
+    public static function directMethods(): array
     {
         return [
-            self::TYPE_HTTP_JSON => trans('power-metrics::strings.type_http_json'),
-            self::TYPE_PUSH => trans('power-metrics::strings.type_push'),
-            self::TYPE_ESTIMATE => trans('power-metrics::strings.type_estimate'),
+            self::DIRECT_PUSH => trans('power-metrics::strings.direct.push'),
+            self::DIRECT_REDFISH => trans('power-metrics::strings.direct.redfish'),
+            self::DIRECT_LOCAL_RAPL => trans('power-metrics::strings.direct.local_rapl'),
+        ];
+    }
+
+    /** @return array<string, string> */
+    public static function plugTypes(): array
+    {
+        return [
+            self::PLUG_SHELLY_GEN2 => 'Shelly Gen2/Gen3 (Plug S, Plus, Pro)',
+            self::PLUG_SHELLY_GEN1 => 'Shelly Gen1 (Plug, Plug S)',
+            self::PLUG_TASMOTA => 'Tasmota',
+            self::PLUG_HOME_ASSISTANT => 'Home Assistant',
+            self::PLUG_CUSTOM => trans('power-metrics::strings.plug.custom'),
         ];
     }
 
@@ -127,34 +196,67 @@ class PowerSource extends Model
         return $this->hasMany(PowerHourlyStat::class);
     }
 
-    public function isMeasuring(): bool
+    public function hasDirect(): bool
     {
-        return $this->type !== self::TYPE_ESTIMATE && self::isRecent($this->last_measured_at);
+        return filled($this->direct_method);
     }
 
-    /** Darf (bzw. muss) für diese Quelle geschätzt werden? */
+    public function hasPlug(): bool
+    {
+        return filled($this->plug_type);
+    }
+
     public function canEstimate(): bool
     {
-        return $this->node_id !== null && ($this->type === self::TYPE_ESTIMATE || $this->estimate_fallback);
+        return $this->estimate_fallback && $this->node_id !== null;
+    }
+
+    /** Hat das Push-Skript kürzlich geliefert? Dann ist die direkte Messung aktiv. */
+    public function isPushActive(): bool
+    {
+        return $this->direct_method === self::DIRECT_PUSH
+            && $this->last_direct_at !== null
+            && $this->last_direct_at->diffInSeconds(now(), true) <= (int) config('power-metrics.push_timeout_seconds', 150);
     }
 
     public function isOnline(): bool
     {
-        return $this->enabled && self::isRecent($this->last_sample_at);
+        return $this->enabled
+            && $this->last_sample_at !== null
+            && $this->last_sample_at->diffInSeconds(now(), true) <= (int) config('power-metrics.stale_after_seconds', 300);
     }
 
-    /** measured | estimated | offline */
+    /** direct | plug | estimated | offline */
     public function mode(): string
     {
         if (!$this->isOnline()) {
             return self::MODE_OFFLINE;
         }
 
-        return $this->last_estimated ? self::MODE_ESTIMATED : self::MODE_MEASURED;
+        return match ($this->last_method) {
+            self::METHOD_DIRECT => self::MODE_DIRECT,
+            self::METHOD_PLUG => self::MODE_PLUG,
+            default => $this->last_estimated ? self::MODE_ESTIMATED : self::MODE_DIRECT,
+        };
     }
 
-    private static function isRecent(?CarbonInterface $time): bool
+    /** Kurzbeschreibung der eingerichteten Kette, z. B. "Push → Shelly Gen2 → Schätzung" */
+    public function chainLabel(): string
     {
-        return $time !== null && $time->diffInSeconds(now(), true) <= (int) config('power-metrics.stale_after_seconds', 300);
+        $steps = [];
+
+        if ($this->hasDirect()) {
+            $steps[] = self::directMethods()[$this->direct_method] ?? $this->direct_method;
+        }
+
+        if ($this->hasPlug()) {
+            $steps[] = self::plugTypes()[$this->plug_type] ?? $this->plug_type;
+        }
+
+        if ($this->canEstimate()) {
+            $steps[] = trans('power-metrics::strings.mode.estimated');
+        }
+
+        return $steps ? implode(' → ', $steps) : '–';
     }
 }

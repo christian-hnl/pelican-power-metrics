@@ -21,7 +21,7 @@ class PushController extends Controller
 
         /** @var ?PowerSource $source */
         $source = PowerSource::query()
-            ->where('type', PowerSource::TYPE_PUSH)
+            ->where('direct_method', PowerSource::DIRECT_PUSH)
             ->where('enabled', true)
             ->where('token', $token)
             ->first();
@@ -37,7 +37,10 @@ class PushController extends Controller
         }
 
         try {
-            $stored = $recorder->record($source, (float) $watts * ($source->multiplier ?: 1.0));
+            $stored = $recorder->record($source, (float) $watts + $source->direct_offset_watts, method: PowerSource::METHOD_DIRECT);
+
+            // Push läuft wieder: einen alten "Push-Skript sendet nicht"-Hinweis entfernen
+            $source->forceFill(['last_error' => null])->saveQuietly();
         } catch (InvalidArgumentException $exception) {
             return response()->json(['error' => $exception->getMessage()], 422);
         }

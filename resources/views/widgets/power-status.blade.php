@@ -20,8 +20,11 @@
                             <span style="font-weight: 600;">{{ $source['name'] }}</span>
 
                             @switch($source['mode'])
-                                @case('measured')
-                                    <x-filament::badge color="success" icon="tabler-gauge">{{ trans('power-metrics::strings.mode.measured') }}</x-filament::badge>
+                                @case('direct')
+                                    <x-filament::badge color="success" icon="tabler-gauge">{{ trans('power-metrics::strings.mode.direct') }}</x-filament::badge>
+                                    @break
+                                @case('plug')
+                                    <x-filament::badge color="success" icon="tabler-plug-connected">{{ trans('power-metrics::strings.mode.plug') }}</x-filament::badge>
                                     @break
                                 @case('estimated')
                                     <x-filament::badge color="warning" icon="tabler-calculator">{{ trans('power-metrics::strings.mode.estimated') }}</x-filament::badge>
@@ -37,9 +40,7 @@
                                 <span style="font-variant-numeric: tabular-nums;">{{ $source['watts'] }}</span>
                             @endif
 
-                            <span style="font-size: 0.875rem; opacity: 0.7;">
-                                {{ $source['type'] }}@if ($source['node']) · Node: {{ $source['node'] }}@endif
-                            </span>
+                            <span style="font-size: 0.875rem; opacity: 0.7;">{{ $source['chain'] }}</span>
 
                             @if ($source['error'])
                                 <span style="flex-basis: 100%; font-size: 0.875rem; color: var(--danger-600, #dc2626); overflow-wrap: anywhere;">{{ $source['error'] }}</span>
