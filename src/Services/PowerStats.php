@@ -120,7 +120,7 @@ class PowerStats
         [$source, $duration, $bucket, $format] = self::RANGES[$range] ?? self::RANGES['24h'];
 
         $tz = $this->timezone();
-        $since = now()->subSeconds($duration);
+        $since = now()->utc()->subSeconds($duration);
 
         /** @var array<int, array{sum: float, min: float, max: float, weight: int}> $buckets */
         $buckets = [];

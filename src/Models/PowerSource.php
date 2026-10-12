@@ -3,6 +3,7 @@
 namespace ChristianHnl\PowerMetrics\Models;
 
 use Carbon\CarbonInterface;
+use ChristianHnl\PowerMetrics\Casts\UtcDateTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
@@ -49,7 +50,7 @@ class PowerSource extends Model
             'enabled' => 'bool',
             'multiplier' => 'float',
             'last_watts' => 'float',
-            'last_sample_at' => 'datetime',
+            'last_sample_at' => UtcDateTime::class,
             'auth_header' => 'encrypted',
         ];
     }

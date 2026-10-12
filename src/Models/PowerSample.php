@@ -3,6 +3,7 @@
 namespace ChristianHnl\PowerMetrics\Models;
 
 use Carbon\CarbonInterface;
+use ChristianHnl\PowerMetrics\Casts\UtcDateTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -26,7 +27,7 @@ class PowerSample extends Model
     {
         return [
             'watts' => 'float',
-            'recorded_at' => 'datetime',
+            'recorded_at' => UtcDateTime::class,
         ];
     }
 

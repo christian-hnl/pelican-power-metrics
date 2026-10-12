@@ -83,11 +83,11 @@ class PowerRecorder
     public function prune(): void
     {
         $rawHours = max(1, (int) config('power-metrics.raw_retention_hours', 72));
-        PowerSample::query()->where('recorded_at', '<', now()->subHours($rawHours))->delete();
+        PowerSample::query()->where('recorded_at', '<', now()->utc()->subHours($rawHours))->delete();
 
         $days = (int) config('power-metrics.retention_days', 730);
         if ($days > 0) {
-            PowerHourlyStat::query()->where('hour', '<', now()->subDays($days))->delete();
+            PowerHourlyStat::query()->where('hour', '<', now()->utc()->subDays($days))->delete();
         }
     }
 }

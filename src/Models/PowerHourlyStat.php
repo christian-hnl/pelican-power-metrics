@@ -3,6 +3,7 @@
 namespace ChristianHnl\PowerMetrics\Models;
 
 use Carbon\CarbonInterface;
+use ChristianHnl\PowerMetrics\Casts\UtcDateTime;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -35,7 +36,7 @@ class PowerHourlyStat extends Model
     protected function casts(): array
     {
         return [
-            'hour' => 'datetime',
+            'hour' => UtcDateTime::class,
             'samples' => 'int',
             'sum_watts' => 'float',
             'min_watts' => 'float',
