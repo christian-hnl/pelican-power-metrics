@@ -55,6 +55,7 @@ return [
     'status_widget' => [
         'collector_heading' => 'Collection is not running',
         'collector_description' => 'power-metrics:collect has not run in the last 3 minutes. The Pelican scheduler must run via cron: * * * * * php :path schedule:run >> /dev/null 2>&1 (on the machine/container running the panel). Without the scheduler nothing is collected or estimated.',
+        'collector_page_fallback' => 'Until then this page collects by itself while it is open – gaps appear while it is closed.',
         'no_sources_description' => 'Once collection runs, an estimate source is created for every node automatically. For real values add a smart plug with metering (Shelly, Tasmota, ...) or IPMI as a source.',
         'all_offline_heading' => 'No source is delivering values right now',
         'all_offline_description' => 'See the error messages at the sources below. Estimate sources need Wings on the node to be reachable.',

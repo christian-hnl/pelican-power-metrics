@@ -14,15 +14,23 @@ use Throwable;
 
 class CollectPowerCommand extends Command
 {
+    /** Letzter Lauf über den Scheduler (Cron) */
     public const HEARTBEAT_KEY = 'power-metrics.last_collect';
 
-    protected $signature = 'power-metrics:collect';
+    /** Letzter Lauf überhaupt (auch über die geöffnete Seite) */
+    public const ANY_RUN_KEY = 'power-metrics.last_any_collect';
+
+    protected $signature = 'power-metrics:collect {--from-page : Von der Stromverbrauch-Seite angestoßen (kein Scheduler)}';
 
     protected $description = 'Liest alle Stromquellen aus (Messung) und schätzt bei Ausfall anhand der Node-Auslastung';
 
     public function handle(PowerRecorder $recorder, PowerEstimator $estimator): int
     {
-        Cache::forever(self::HEARTBEAT_KEY, now()->getTimestamp());
+        if (!$this->option('from-page')) {
+            Cache::forever(self::HEARTBEAT_KEY, now()->getTimestamp());
+        }
+
+        Cache::forever(self::ANY_RUN_KEY, now()->getTimestamp());
 
         $this->createDefaultSources();
 

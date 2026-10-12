@@ -6,7 +6,9 @@ use ChristianHnl\PowerMetrics\Console\Commands\CollectPowerCommand;
 use ChristianHnl\PowerMetrics\Models\PowerSource;
 use ChristianHnl\PowerMetrics\Services\PowerStats;
 use Filament\Widgets\Widget;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 /** Zeigt, woher die Werte kommen (gemessen/geschätzt) und warum ggf. nichts angezeigt wird. */
 class PowerStatusWidget extends Widget
@@ -20,6 +22,8 @@ class PowerStatusWidget extends Widget
     /** @return array<string, mixed> */
     protected function getViewData(): array
     {
+        $this->collectIfSchedulerMissing();
+
         $sources = PowerSource::query()->with('node')->orderBy('name')->get();
 
         $lastCollect = Cache::get(CollectPowerCommand::HEARTBEAT_KEY);
@@ -32,7 +36,8 @@ class PowerStatusWidget extends Widget
                 'color' => 'danger',
                 'icon' => 'tabler-clock-exclamation',
                 'heading' => trans('power-metrics::strings.status_widget.collector_heading'),
-                'description' => trans('power-metrics::strings.status_widget.collector_description', ['path' => base_path('artisan')]),
+                'description' => trans('power-metrics::strings.status_widget.collector_description', ['path' => base_path('artisan')])
+                    . ' ' . trans('power-metrics::strings.status_widget.collector_page_fallback'),
             ];
         }
 
@@ -66,5 +71,29 @@ class PowerStatusWidget extends Widget
                     : null,
             ])->all(),
         ];
+    }
+
+    /**
+     * Notlösung ohne Cron: Solange diese Seite offen ist, stößt sie die Erfassung selbst an (alle ~60 s).
+     * Ersetzt den Scheduler nicht – bei geschlossener Seite entstehen Lücken –, zeigt aber sofort Werte.
+     */
+    private function collectIfSchedulerMissing(): void
+    {
+        $lastRun = Cache::get(CollectPowerCommand::ANY_RUN_KEY);
+
+        if (is_int($lastRun) && now()->getTimestamp() - $lastRun < 55) {
+            return;
+        }
+
+        // Nur eine Anfrage gleichzeitig darf erfassen
+        if (!Cache::add('power-metrics.page_collect_lock', true, 50)) {
+            return;
+        }
+
+        try {
+            Artisan::call('power-metrics:collect', ['--from-page' => true]);
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 }

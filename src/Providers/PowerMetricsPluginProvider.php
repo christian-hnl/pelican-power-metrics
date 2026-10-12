@@ -27,10 +27,8 @@ class PowerMetricsPluginProvider extends ServiceProvider
             Livewire::component($widget);
         }
 
-        $this->app->booted(function () {
-            /** @var Schedule $schedule */
-            $schedule = $this->app->make(Schedule::class);
-
+        // Von Laravel für Pakete empfohlen: greift, sobald (bzw. falls bereits) der Scheduler aufgelöst wird
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
             $schedule->command('power-metrics:collect')->everyMinute()->withoutOverlapping(5);
             $schedule->command('power-metrics:prune')->dailyAt('03:17');
         });

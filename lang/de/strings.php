@@ -55,6 +55,7 @@ return [
     'status_widget' => [
         'collector_heading' => 'Die Erfassung läuft nicht',
         'collector_description' => 'In den letzten 3 Minuten wurde power-metrics:collect nicht ausgeführt. Der Pelican-Scheduler muss per Cron laufen: * * * * * php :path schedule:run >> /dev/null 2>&1 (auf dem Rechner/Container, auf dem das Panel läuft). Ohne Scheduler werden keine Werte erfasst und nichts geschätzt.',
+        'collector_page_fallback' => 'Bis dahin erfasst diese Seite selbst, solange sie geöffnet ist – bei geschlossener Seite entstehen Lücken.',
         'no_sources_description' => 'Sobald die Erfassung läuft, wird für jeden Node automatisch eine Schätz-Quelle angelegt. Für echte Werte eine Steckdose mit Messung (Shelly, Tasmota, ...) oder IPMI als Quelle hinzufügen.',
         'all_offline_heading' => 'Keine Quelle liefert aktuell Werte',
         'all_offline_description' => 'Die Fehlermeldungen stehen unten bei den Quellen. Bei Schätz-Quellen muss Wings auf dem Node erreichbar sein.',
